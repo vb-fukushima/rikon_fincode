@@ -57,8 +57,14 @@ class PaymentController extends Controller
      */
     public function success(Request $request)
     {
+        // POSTでもGETでも受け取れるように
+        $sessionId = $request->input('session_id') ?? $request->query('session_id');
+
+        // デバッグ用：受け取ったデータをログに出力
+        Log::info('Payment success callback', $request->all());
+
         return view('payment.success', [
-            'session_id' => $request->input('session_id'),
+            'session_id' => $sessionId,
         ]);
     }
 
