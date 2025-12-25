@@ -12,5 +12,7 @@ Route::get('/payment', function () {
 })->name('payment.form');
 
 Route::post('/payment/create', [PaymentController::class, 'createPayment'])->name('payment.create');
-Route::get('/payment/success', [PaymentController::class, 'success'])->name('payment.success');
-Route::get('/payment/cancel', [PaymentController::class, 'cancel'])->name('payment.cancel');
+
+// ここを修正：GETとPOSTの両方に対応
+Route::match(['get', 'post'], '/payment/success', [PaymentController::class, 'success'])->name('payment.success');
+Route::match(['get', 'post'], '/payment/cancel', [PaymentController::class, 'cancel'])->name('payment.cancel');
