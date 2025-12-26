@@ -16,3 +16,6 @@ Route::post('/payment/create', [PaymentController::class, 'createPayment'])->nam
 // ここを修正：GETとPOSTの両方に対応
 Route::match(['get', 'post'], '/payment/success', [PaymentController::class, 'success'])->name('payment.success');
 Route::match(['get', 'post'], '/payment/cancel', [PaymentController::class, 'cancel'])->name('payment.cancel');
+
+// 領収書ダウンロード
+Route::get('/payment/receipt/download', [PaymentController::class, 'downloadReceipt'])->name('payment.receipt.download');

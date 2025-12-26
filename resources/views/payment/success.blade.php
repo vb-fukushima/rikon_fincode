@@ -27,14 +27,51 @@
             color: #4CAF50;
             margin-bottom: 20px;
         }
-        a {
+        .info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .label {
+            font-weight: bold;
+            color: #555;
+        }
+        .value {
+            color: #333;
+        }
+        .btn {
             display: inline-block;
-            margin-top: 20px;
-            padding: 10px 20px;
+            margin: 10px 5px;
+            padding: 12px 30px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-primary {
             background-color: #4CAF50;
             color: white;
-            text-decoration: none;
-            border-radius: 4px;
+        }
+        .btn-primary:hover {
+            background-color: #45a049;
+        }
+        .btn-secondary {
+            background-color: #2196F3;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #0b7dda;
         }
     </style>
 </head>
@@ -43,10 +80,31 @@
     <div class="success-icon">✓</div>
     <h1>決済が完了しました</h1>
     <p>ご利用ありがとうございます。</p>
-    @if($session_id)
-        <p>セッションID: {{ $session_id }}</p>
+
+    @if($payment_data)
+        <div class="info">
+            <div class="info-row">
+                <span class="label">決済ID</span>
+                <span class="value">{{ $session_id }}</span>
+            </div>
+            @if(isset($payment_data['transaction']['amount']))
+                <div class="info-row">
+                    <span class="label">決済金額</span>
+                    <span class="value">¥{{ number_format($payment_data['transaction']['amount']) }}</span>
+                </div>
+            @endif
+            <div class="info-row">
+                <span class="label">決済日時</span>
+                <span class="value">{{ now()->format('Y年m月d日 H:i') }}</span>
+            </div>
+        </div>
+
+        <a href="{{ route('payment.receipt.download', ['session_id' => $session_id]) }}" class="btn btn-secondary">
+            📄 領収書をダウンロード
+        </a>
     @endif
-    <a href="{{ route('payment.form') }}">トップに戻る</a>
+
+    <a href="{{ route('payment.form') }}" class="btn btn-primary">トップに戻る</a>
 </div>
 </body>
 </html>
