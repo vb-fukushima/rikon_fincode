@@ -140,7 +140,7 @@
         <!-- インボイス機能 NEW! -->
         <div class="feature-card">
             <div class="feature-icon">📧</div>
-            <div class="feature-title">インボイス機能 ※←使えない</div>
+            <div class="feature-title">インボイス機能 ※←使えないので、コード要確認</div>
             <div class="feature-description">
                 カウンセリング完了後に請求書を自動発行。
                 決済URLをメール送信。領収書も自動発行。
