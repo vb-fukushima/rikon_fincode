@@ -6,12 +6,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Cache;
 
 class PaymentController extends Controller
 {
     /**
      * 決済セッションを作成してfincodeにリダイレクト
      */
+// PaymentController.php
+
+// PaymentController.php
+
     public function createPayment(Request $request)
     {
         $amount = $request->input('amount', '1000');
@@ -29,14 +34,52 @@ class PaymentController extends Controller
                 ],
                 'card' => [
                     'job_code' => 'CAPTURE',
-                    'tds_type' => '2',
-                    'tds2_type' => '2',
+                    'tds_type' => config('services.fincode.tds_type'),
+                    'tds2_type' => config('services.fincode.tds_type'),
                 ],
             ]);
 
             if ($response->successful()) {
                 $data = $response->json();
-                return redirect($data['link_url']);
+                $sessionId = $data['id'];
+
+                // キャッシュに保存（24時間有効）
+                Cache::put('fincode_session_' . $sessionId, [
+                    'session_id' => $sessionId,
+                    'amount' => $amount,
+                    'created_at' => now()->toIso8601String(),
+                ], now()->addHours(24));
+
+                Log::info('fincode session created and cached', [
+                    'session_id' => $sessionId,
+                    'amount' => $amount,
+                ]);
+
+                // success_urlにsession_idを追加
+                $successUrl = route('payment.success', ['session_id' => $sessionId]);
+
+                // 再度セッション作成（success_urlを更新）
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . config('services.fincode.secret_key'),
+                    'Content-Type' => 'application/json',
+                ])->post(config('services.fincode.api_url') . '/v1/sessions', [
+                    'success_url' => $successUrl,
+                    'cancel_url' => route('payment.cancel'),
+                    'transaction' => [
+                        'pay_type' => ['Card'],
+                        'amount' => (string)$amount,
+                    ],
+                    'card' => [
+                        'job_code' => 'CAPTURE',
+                        'tds_type' => config('services.fincode.tds_type'),
+                        'tds2_type' => config('services.fincode.tds_type'),
+                    ],
+                ]);
+
+                if ($response->successful()) {
+                    $data = $response->json();
+                    return redirect($data['link_url']);
+                }
             }
 
             Log::error('fincode API error', [
@@ -52,24 +95,59 @@ class PaymentController extends Controller
         }
     }
 
-    /**
-     * 決済成功時のコールバック
-     */
     public function success(Request $request)
     {
-        $sessionId = $request->input('session_id') ?? $request->query('session_id');
+        $sessionId = $request->query('session_id');
 
-        Log::info('Payment success callback', $request->all());
+        // すべてのリクエストパラメータを取得
+        $allParams = $request->all();
+        $queryParams = $request->query();
+        $headers = $request->headers->all();
 
-        // 決済情報を取得
-        $paymentData = null;
-        if ($sessionId) {
-            $paymentData = $this->getPaymentData($sessionId);
+        Log::info('Success callback received', [
+            'session_id' => $sessionId,
+            'all_params' => $allParams,
+            'query_params' => $queryParams,
+        ]);
+
+        if (!$sessionId) {
+            return redirect()->route('payment.form')->with('error', 'セッション情報が見つかりません');
         }
+
+        // キャッシュから取得
+        $cachedData = Cache::get('fincode_session_' . $sessionId);
+
+        if (!$cachedData) {
+            return redirect()->route('payment.form')->with('error', 'セッション情報が見つかりません');
+        }
+
+        // fincodeのAPIからセッション詳細を取得
+        $sessionDetails = null;
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('services.fincode.secret_key'),
+            ])->get(config('services.fincode.api_url') . '/v1/sessions/' . $sessionId);
+
+            if ($response->successful()) {
+                $sessionDetails = $response->json();
+                Log::info('Session details retrieved', $sessionDetails);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to retrieve session details', ['error' => $e->getMessage()]);
+        }
+
+        // キャッシュをクリア
+        Cache::forget('fincode_session_' . $sessionId);
 
         return view('payment.success', [
             'session_id' => $sessionId,
-            'payment_data' => $paymentData,
+            'amount' => $cachedData['amount'],
+            'all_params' => $allParams,
+            'query_params' => $queryParams,
+            'cached_data' => $cachedData,
+            'session_details' => $sessionDetails,
+            'request_method' => $request->method(),
+            'request_url' => $request->fullUrl(),
         ]);
     }
 
@@ -115,30 +193,41 @@ class PaymentController extends Controller
     /**
      * fincodeから決済情報を取得
      */
-    private function getPaymentData($sessionId)
+    public function getPaymentReceipt($paymentId)
     {
-        try {
-            // セッション情報の取得にはパブリックキーを使う
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . config('services.fincode.public_key'), // publicに変更
-                'Content-Type' => 'application/json',
-            ])->get(config('services.fincode.api_url') . '/v1/sessions/' . $sessionId);
+        $apiKey = config('services.fincode.secret_key');
+        $apiUrl = config('services.fincode.api_url');
 
-            if ($response->successful()) {
-                Log::info('Payment data retrieved', $response->json());
-                return $response->json();
+        // 決済情報取得
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $apiKey,
+        ])->get("{$apiUrl}/v1/payments/{$paymentId}");
+
+        if ($response->successful()) {
+            $payment = $response->json();
+
+            // レスポンス全体を確認（デバッグ用）
+            dd($payment);
+
+            // もし receipt_url があれば
+            if (isset($payment['receipt_url'])) {
+                return redirect($payment['receipt_url']);
             }
-
-            Log::error('Failed to get payment data', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
-
-            return null;
-
-        } catch (\Exception $e) {
-            Log::error('Get payment data exception', ['error' => $e->getMessage()]);
-            return null;
         }
+
+        return back()->with('error', '領収書が見つかりません');
+    }
+
+
+    public function failed(Request $request)
+    {
+        Log::warning('3DS authentication failed', [
+            'session_id' => $request->query('session_id'),
+            'all_params' => $request->all(),
+        ]);
+
+        return view('payment.failed', [
+            'message' => '3Dセキュア認証に失敗しました。もう一度お試しください。'
+        ]);
     }
 }

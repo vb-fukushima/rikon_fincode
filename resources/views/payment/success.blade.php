@@ -3,108 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>決済完了</title>
+    <title>決済成功 - デバッグ情報</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 50px auto;
+            font-family: sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
             padding: 20px;
-            background-color: #f5f5f5;
         }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        h1 {
-            color: #4CAF50;
-        }
-        .success-icon {
-            font-size: 64px;
-            color: #4CAF50;
+        .section {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
             margin-bottom: 20px;
         }
-        .info {
-            background: #f8f9fa;
+        .section h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        pre {
+            background: white;
+            border: 1px solid #ccc;
+            padding: 10px;
+            overflow-x: auto;
+            border-radius: 3px;
+        }
+        .success {
+            background: #4CAF50;
+            color: white;
             padding: 15px;
-            border-radius: 4px;
-            margin: 20px 0;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        table td, table th {
+            border: 1px solid #ddd;
+            padding: 8px;
             text-align: left;
         }
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        .info-row:last-child {
-            border-bottom: none;
-        }
-        .label {
-            font-weight: bold;
-            color: #555;
-        }
-        .value {
-            color: #333;
-        }
-        .btn {
-            display: inline-block;
-            margin: 10px 5px;
-            padding: 12px 30px;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .btn-primary {
+        table th {
             background-color: #4CAF50;
             color: white;
         }
-        .btn-primary:hover {
-            background-color: #45a049;
-        }
-        .btn-secondary {
-            background-color: #2196F3;
+        .button {
+            display: inline-block;
+            background: #4CAF50;
             color: white;
-        }
-        .btn-secondary:hover {
-            background-color: #0b7dda;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
-<div class="container">
-    <div class="success-icon">✓</div>
-    <h1>決済が完了しました</h1>
-    <p>ご利用ありがとうございます。</p>
-
-    @if($payment_data)
-        <div class="info">
-            <div class="info-row">
-                <span class="label">決済ID</span>
-                <span class="value">{{ $session_id }}</span>
-            </div>
-            @if(isset($payment_data['transaction']['amount']))
-                <div class="info-row">
-                    <span class="label">決済金額</span>
-                    <span class="value">¥{{ number_format($payment_data['transaction']['amount']) }}</span>
-                </div>
-            @endif
-            <div class="info-row">
-                <span class="label">決済日時</span>
-                <span class="value">{{ now()->format('Y年m月d日 H:i') }}</span>
-            </div>
-        </div>
-
-        <a href="{{ route('payment.receipt.download', ['session_id' => $session_id]) }}" class="btn btn-secondary">
-            📄 領収書をダウンロード
-        </a>
-    @endif
-
-    <a href="{{ route('payment.form') }}" class="btn btn-primary">トップに戻る</a>
+<div class="success">
+    <h1>✅ 決済が完了しました</h1>
+    <p>金額: ¥{{ number_format($amount) }}</p>
 </div>
+
+<div class="section">
+    <h2>1. リクエスト基本情報</h2>
+    <table>
+        <tr>
+            <th>項目</th>
+            <th>値</th>
+        </tr>
+        <tr>
+            <td>HTTPメソッド</td>
+            <td>{{ $request_method }}</td>
+        </tr>
+        <tr>
+            <td>リクエストURL</td>
+            <td>{{ $request_url }}</td>
+        </tr>
+        <tr>
+            <td>セッションID</td>
+            <td>{{ $session_id }}</td>
+        </tr>
+    </table>
+</div>
+
+<div class="section">
+    <h2>2. すべてのパラメータ ($request->all())</h2>
+    <pre>{{ json_encode($all_params, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+</div>
+
+<div class="section">
+    <h2>3. クエリパラメータ ($request->query())</h2>
+    <pre>{{ json_encode($query_params, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+</div>
+
+<div class="section">
+    <h2>4. キャッシュデータ</h2>
+    <pre>{{ json_encode($cached_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+</div>
+
+@if($session_details)
+    <div class="section">
+        <h2>5. fincodeセッション詳細 (APIから取得)</h2>
+        <pre>{{ json_encode($session_details, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+    </div>
+@endif
+
+<a href="{{ route('payment.form') }}" class="button">新しい決済を試す</a>
 </body>
 </html>

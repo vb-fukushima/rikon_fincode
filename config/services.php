@@ -39,6 +39,7 @@ return [
         'secret_key' => env('FINCODE_SECRET_KEY'),
         'public_key' => env('FINCODE_PUBLIC_KEY'),
         'api_url' => env('FINCODE_API_URL', 'https://api.test.fincode.jp'),
+        'tds_type' => env('FINCODE_TDS_TYPE', '2'), // ← これを追加
     ],
 
 ];
